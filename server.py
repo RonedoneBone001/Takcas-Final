@@ -29,7 +29,7 @@ PERSONAS = {
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+MODEL = "nvidia/nemotron-3.5-lightning:free"
 
 @app.route('/')
 def index():
