@@ -14,7 +14,7 @@ PERSONAS = {
 
 # Модели: Cohere для кода, Gemma для общения
 MODEL_CODER = "cohere/north-mini-code:free"
-MODEL_CHAT = "google/gemma-4-31b-it:free"
+MODEL_CHAT = "dots-studio/dots-3-note-preview:free"
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
