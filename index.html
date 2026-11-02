@@ -66,124 +66,193 @@
         const chatBox = document.getElementById('chat-box');
         const input = document.getElementById('user-input');
         const personasBar = document.getElementById('personas-bar');
+        const sendButton = document.querySelector('.send-btn');
         let currentPersona = 'taksas';
         let currentLang = 'ru';
-        
+        let isSending = false;
+
         const translations = {
-            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер", copy: "Копировать" },
-            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder", copy: "Copy" }
+            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер", copy: "Копировать", copied: "Скопировано!", connection: "Ошибка соединения с сервером.", generic: "Не удалось получить ответ." },
+            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder", copy: "Copy", copied: "Copied!", connection: "Connection error. Please try again.", generic: "Could not get a response." }
         };
 
         function toggleLang() {
             currentLang = currentLang === 'ru' ? 'en' : 'ru';
             document.getElementById('lang-toggle').innerText = currentLang === 'ru' ? 'EN' : 'RU';
             input.placeholder = translations[currentLang].placeholder;
-            
             document.getElementById('btn-taksas').innerText = translations[currentLang].taksas;
             document.getElementById('btn-dubina').innerText = translations[currentLang].dubina;
             document.getElementById('btn-prokrastinator').innerText = translations[currentLang].prokrastinator;
             document.getElementById('btn-potassium').innerText = translations[currentLang].potassium;
             document.getElementById('btn-coder').innerText = translations[currentLang].coder;
-            
             renderHistory();
         }
 
-        function getHistoryKey() { return `chat_history_${currentPersona}`; }
-        function loadHistory() { return JSON.parse(localStorage.getItem(getHistoryKey())) || []; }
-        function saveHistory(history) { localStorage.setItem(getHistoryKey(), JSON.stringify(history)); }
+        function getHistoryKey(persona = currentPersona) {
+            return `chat_history_${persona}`;
+        }
+
+        function normalizeHistory(value) {
+            if (!Array.isArray(value)) return [];
+            return value
+                .filter(item => item && typeof item === 'object'
+                    && (item.role === 'user' || item.role === 'assistant')
+                    && typeof item.content === 'string'
+                    && item.content.trim().length > 0)
+                .slice(-100)
+                .map(item => ({ role: item.role, content: item.content.slice(0, 12000) }));
+        }
+
+        function loadHistory(persona = currentPersona) {
+            try {
+                const raw = localStorage.getItem(getHistoryKey(persona));
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                const history = normalizeHistory(parsed);
+                // Repair invalid or outdated stored data instead of crashing the UI.
+                if (!Array.isArray(parsed) || history.length !== parsed.length) {
+                    saveHistory(history, persona);
+                }
+                return history;
+            } catch (error) {
+                console.warn('Unable to read chat history; starting with an empty history.', error);
+                try { localStorage.removeItem(getHistoryKey(persona)); } catch (_) {}
+                return [];
+            }
+        }
+
+        function saveHistory(history, persona = currentPersona) {
+            const safeHistory = normalizeHistory(history);
+            try {
+                localStorage.setItem(getHistoryKey(persona), JSON.stringify(safeHistory));
+                return true;
+            } catch (error) {
+                console.warn('Unable to save chat history.', error);
+                return false;
+            }
+        }
 
         function renderHistory() {
             chatBox.innerHTML = '';
             loadHistory().forEach(msg => addMessageToUI(msg.content, msg.role === 'user' ? 'user' : 'bot', false));
         }
 
-        personasBar.addEventListener('click', (e) => {
-            if (e.target.classList.contains('persona-btn')) {
-                document.querySelectorAll('.persona-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentPersona = e.target.dataset.persona;
-                renderHistory();
-            }
+        personasBar.addEventListener('click', (event) => {
+            const button = event.target.closest('.persona-btn');
+            if (!button || !personasBar.contains(button)) return;
+            document.querySelectorAll('.persona-btn').forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            currentPersona = button.dataset.persona;
+            renderHistory();
         });
 
         input.addEventListener('input', function() {
             this.style.height = '20px';
-            this.style.height = (this.scrollHeight) + 'px';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
         });
 
         function addMessageToUI(text, sender, animate = true) {
             const wrapper = document.createElement('div');
             wrapper.className = `message-wrapper ${sender === 'user' ? 'user-msg-wrapper' : 'bot-msg-wrapper'}`;
-            
             const div = document.createElement('div');
             div.className = `message ${sender === 'user' ? 'user-msg' : 'bot-msg'}`;
             if (!animate) div.style.animation = 'none';
             div.innerText = text;
             wrapper.appendChild(div);
-            
+
             if (sender === 'bot') {
                 const copyBtn = document.createElement('button');
                 copyBtn.className = 'copy-btn';
-                copyBtn.innerHTML = '📋 ' + translations[currentLang].copy;
-                copyBtn.onclick = () => {
-                    navigator.clipboard.writeText(text).then(() => {
-                        copyBtn.innerHTML = '✅ ' + (currentLang === 'ru' ? 'Скопировано!' : 'Copied!');
-                        setTimeout(() => { copyBtn.innerHTML = '📋 ' + translations[currentLang].copy; }, 2000);
-                    });
+                copyBtn.type = 'button';
+                copyBtn.innerText = '📋 ' + translations[currentLang].copy;
+                copyBtn.onclick = async () => {
+                    try {
+                        await navigator.clipboard.writeText(text);
+                        copyBtn.innerText = '✅ ' + translations[currentLang].copied;
+                    } catch (error) {
+                        copyBtn.innerText = translations[currentLang].copy;
+                        console.warn('Clipboard access failed.', error);
+                    }
                 };
                 wrapper.appendChild(copyBtn);
             }
-            
+
             chatBox.appendChild(wrapper);
             chatBox.scrollTop = chatBox.scrollHeight;
+            return wrapper;
+        }
+
+        function setSending(sending) {
+            isSending = sending;
+            sendButton.disabled = sending;
+            sendButton.setAttribute('aria-busy', String(sending));
+            sendButton.style.opacity = sending ? '0.6' : '1';
+            input.disabled = sending;
         }
 
         async function sendMessage() {
+            if (isSending) return;
             const text = input.value.trim();
             if (!text) return;
 
-            const history = loadHistory();
+            // Capture the active conversation before awaiting the network.
+            const persona = currentPersona;
+            const lang = currentLang;
+            const history = loadHistory(persona);
             history.push({ role: 'user', content: text });
-            saveHistory(history);
+            saveHistory(history, persona);
             addMessageToUI(text, 'user');
-            
+
             input.value = '';
             input.style.height = '20px';
+            setSending(true);
 
-            const wrapper = document.createElement('div');
-            wrapper.className = 'message-wrapper bot-msg-wrapper';
+            const loadingWrapper = document.createElement('div');
+            loadingWrapper.className = 'message-wrapper bot-msg-wrapper';
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message bot-msg';
-            loadingDiv.innerHTML = '<div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-            wrapper.appendChild(loadingDiv);
-            chatBox.appendChild(wrapper);
+            loadingDiv.innerHTML = '<div class="loading" aria-label="Loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
+            loadingWrapper.appendChild(loadingDiv);
+            chatBox.appendChild(loadingWrapper);
             chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ persona: currentPersona, message: text, history: history, lang: currentLang })
+                    body: JSON.stringify({ persona, message: text, history, lang })
                 });
-                const data = await response.json();
-                wrapper.remove();
-                
-                if (data.response) {
-                    addMessageToUI(data.response, 'bot');
-                    history.push({ role: 'assistant', content: data.response });
-                    saveHistory(history);
-                } else {
-                    addMessageToUI("Ошибка: " + (data.error || "Пустой ответ"), 'bot');
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(data.error || `Request failed (${response.status}).`);
                 }
-            } catch (e) {
-                wrapper.remove();
-                addMessageToUI("Ошибка соединения с сервером.", 'bot');
+                if (typeof data.response !== 'string' || !data.response.trim()) {
+                    throw new Error(data.error || translations[lang].generic);
+                }
+
+                const updatedHistory = loadHistory(persona);
+                updatedHistory.push({ role: 'assistant', content: data.response.trim() });
+                saveHistory(updatedHistory, persona);
+                if (currentPersona === persona) {
+                    addMessageToUI(data.response.trim(), 'bot');
+                }
+            } catch (error) {
+                console.error('Chat request failed:', error);
+                const message = error instanceof Error ? error.message : translations[lang].connection;
+                const updatedHistory = loadHistory(persona);
+                updatedHistory.push({ role: 'assistant', content: 'Error: ' + message });
+                saveHistory(updatedHistory, persona);
+                if (currentPersona === persona) addMessageToUI('Error: ' + message, 'bot');
+            } finally {
+                loadingWrapper.remove();
+                setSending(false);
+                input.focus();
             }
         }
 
-        input.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
+        input.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
                 sendMessage();
             }
         });
