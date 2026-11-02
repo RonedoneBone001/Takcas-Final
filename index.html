@@ -15,10 +15,21 @@
         .persona-btn.active { border-color: var(--accent); background-color: rgba(187, 134, 252, 0.1); color: var(--accent); }
         .persona-btn:hover { border-color: #555; }
         #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
-        .message { padding: 12px 16px; border-radius: 12px; max-width: 85%; word-wrap: break-word; line-height: 1.5; font-size: 15px; animation: fadeIn 0.3s ease; }
+        .message-wrapper { display: flex; flex-direction: column; max-width: 85%; position: relative; }
+        .message { padding: 12px 16px; border-radius: 12px; word-wrap: break-word; line-height: 1.5; font-size: 15px; animation: fadeIn 0.3s ease; white-space: pre-wrap; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .user-msg { background-color: var(--user-bg); align-self: flex-end; border-bottom-right-radius: 2px; }
-        .bot-msg { background-color: var(--bot-bg); align-self: flex-start; border-bottom-left-radius: 2px; border-left: 3px solid var(--accent); }
+        .user-msg-wrapper { align-self: flex-end; align-items: flex-end; }
+        .bot-msg-wrapper { align-self: flex-start; align-items: flex-start; }
+        .user-msg { background-color: var(--user-bg); border-bottom-right-radius: 2px; }
+        .bot-msg { background-color: var(--bot-bg); border-bottom-left-radius: 2px; border-left: 3px solid var(--accent); }
+        
+        .copy-btn { 
+            background: none; border: none; color: #888; cursor: pointer; font-size: 12px; 
+            margin-top: 5px; padding: 2px 5px; opacity: 0.7; transition: 0.2s; 
+            display: flex; align-items: center; gap: 4px;
+        }
+        .copy-btn:hover { opacity: 1; color: var(--accent); }
+
         .loading { display: flex; gap: 4px; align-items: center; height: 20px; }
         .dot { width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .dot:nth-child(1) { animation-delay: -0.32s; } .dot:nth-child(2) { animation-delay: -0.16s; }
@@ -59,8 +70,8 @@
         let currentLang = 'ru';
         
         const translations = {
-            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер" },
-            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder" }
+            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер", copy: "Копировать" },
+            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder", copy: "Copy" }
         };
 
         function toggleLang() {
@@ -78,10 +89,7 @@
         }
 
         function getHistoryKey() { return `chat_history_${currentPersona}`; }
-        function loadHistory() {
-            const saved = localStorage.getItem(getHistoryKey());
-            return saved ? JSON.parse(saved) : [];
-        }
+        function loadHistory() { return JSON.parse(localStorage.getItem(getHistoryKey())) || []; }
         function saveHistory(history) { localStorage.setItem(getHistoryKey(), JSON.stringify(history)); }
 
         function renderHistory() {
@@ -104,11 +112,29 @@
         });
 
         function addMessageToUI(text, sender, animate = true) {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-wrapper ${sender === 'user' ? 'user-msg-wrapper' : 'bot-msg-wrapper'}`;
+            
             const div = document.createElement('div');
             div.className = `message ${sender === 'user' ? 'user-msg' : 'bot-msg'}`;
             if (!animate) div.style.animation = 'none';
             div.innerText = text;
-            chatBox.appendChild(div);
+            wrapper.appendChild(div);
+            
+            if (sender === 'bot') {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.innerHTML = '📋 ' + translations[currentLang].copy;
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(text).then(() => {
+                        copyBtn.innerHTML = '✅ ' + (currentLang === 'ru' ? 'Скопировано!' : 'Copied!');
+                        setTimeout(() => { copyBtn.innerHTML = '📋 ' + translations[currentLang].copy; }, 2000);
+                    });
+                };
+                wrapper.appendChild(copyBtn);
+            }
+            
+            chatBox.appendChild(wrapper);
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
@@ -124,10 +150,13 @@
             input.value = '';
             input.style.height = '20px';
 
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper bot-msg-wrapper';
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message bot-msg';
             loadingDiv.innerHTML = '<div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>';
-            chatBox.appendChild(loadingDiv);
+            wrapper.appendChild(loadingDiv);
+            chatBox.appendChild(wrapper);
             chatBox.scrollTop = chatBox.scrollHeight;
 
             try {
@@ -137,7 +166,7 @@
                     body: JSON.stringify({ persona: currentPersona, message: text, history: history, lang: currentLang })
                 });
                 const data = await response.json();
-                loadingDiv.remove();
+                wrapper.remove();
                 
                 if (data.response) {
                     addMessageToUI(data.response, 'bot');
@@ -147,7 +176,7 @@
                     addMessageToUI("Ошибка: " + (data.error || "Пустой ответ"), 'bot');
                 }
             } catch (e) {
-                loadingDiv.remove();
+                wrapper.remove();
                 addMessageToUI("Ошибка соединения с сервером.", 'bot');
             }
         }
