@@ -39,35 +39,100 @@ def index():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    data = request.json
-    persona_key = data.get('persona', 'taksas')
-    user_message = data.get('message', '')
-    history = data.get('history', [])
-    lang = data.get('lang', 'ru')
-    
-    if not user_message: return jsonify({"error": "Empty"}), 400
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return jsonify({"error": "Invalid JSON request."}), 400
+
+    persona_key = data.get("persona", "taksas")
+    user_message = data.get("message", "")
+    history = data.get("history", [])
+    lang = data.get("lang", "ru")
+
+    if not isinstance(persona_key, str):
+        persona_key = "taksas"
+    if not isinstance(lang, str):
+        lang = "ru"
+    if not isinstance(user_message, str) or not user_message.strip():
+        return jsonify({"error": "Message must be a non-empty string."}), 400
+    user_message = user_message.strip()
+    if len(user_message) > 12000:
+        return jsonify({"error": "Message is too long (maximum 12000 characters)."}), 413
+    if not isinstance(history, list):
+        return jsonify({"error": "Chat history must be a list."}), 400
+
+    if not OPENROUTER_API_KEY:
+        return jsonify({"error": "The AI provider is not configured on the server."}), 503
 
     persona_data = PERSONAS.get(persona_key, PERSONAS["taksas"])
     system_prompt = persona_data.get(lang, persona_data["ru"])
-    
     messages = [{"role": "system", "content": system_prompt}]
-    for msg in history[-4:]: messages.append({"role": msg['role'], "content": msg['content']})
+
+    # Only accept conversational roles. Never allow browser history to inject
+    # system/developer/tool messages into the trusted prompt.
+    safe_history = []
+    for item in history[-8:]:
+        if not isinstance(item, dict):
+            continue
+        role = item.get("role")
+        content = item.get("content")
+        if role not in ("user", "assistant") or not isinstance(content, str):
+            continue
+        content = content.strip()
+        if not content or len(content) > 12000:
+            continue
+        safe_history.append({"role": role, "content": content})
+
+    # The frontend currently includes the just-submitted user message in
+    # history. Remove that trailing copy so it is sent only once below.
+    if (
+        safe_history
+        and safe_history[-1]["role"] == "user"
+        and safe_history[-1]["content"] == user_message
+    ):
+        safe_history.pop()
+
+    messages.extend(safe_history)
     messages.append({"role": "user", "content": user_message})
 
     model_to_use = MODEL_CODER if persona_key == "coder" else MODEL_CHAT
-
-    headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}", "Content-Type": "application/json"}
-    payload = {"model": model_to_use, "messages": messages, "temperature": 0.9, "max_tokens": 1500}
+    headers = {
+        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_to_use,
+        "messages": messages,
+        "temperature": 0.9,
+        "max_tokens": 1500,
+    }
 
     try:
-        response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=90)
+        response = requests.post(
+            OPENROUTER_URL,
+            headers=headers,
+            json=payload,
+            timeout=(10, 90),
+        )
         response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        if content is None:
-            return jsonify({"error": "Модель задумалась. Попробуй еще раз."}), 500
+        provider_data = response.json()
+        content = (
+            provider_data.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content")
+        )
+        if not isinstance(content, str) or not content.strip():
+            return jsonify({"error": "The AI provider returned an empty or invalid response."}), 502
         return jsonify({"response": content.strip()})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+
+    except requests.Timeout:
+        return jsonify({"error": "The AI provider timed out. Please try again."}), 504
+    except requests.RequestException:
+        # Avoid returning provider response bodies or internal details to clients.
+        app.logger.exception("AI provider request failed")
+        return jsonify({"error": "The AI provider request failed. Please try again."}), 502
+    except (ValueError, TypeError, IndexError, AttributeError):
+        app.logger.exception("Invalid AI provider response")
+        return jsonify({"error": "The AI provider returned an invalid response."}), 502
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
