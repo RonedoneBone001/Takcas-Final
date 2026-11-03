@@ -35,7 +35,7 @@ function showTyping() {
   const el = document.createElement('article');
   el.className = 'message assistant';
   el.id = 'typing';
-  el.innerHTML = `<div class="message-avatar">🤖</div><div class="message-content"><div class="message-name">${t[currentLang].thinking}</div><div class="typing">...</div></div>`;
+  el.innerHTML = `<div class="message-avatar">🤖</div><div class="message-content"><div class="message-name">${t[currentLang].thinking}</div><div class="typing"><span></span><span></span><span></span></div></div>`;
   $('#chat-box').appendChild(el);
   $('#workspace').scrollTop = $('#workspace').scrollHeight;
 }
@@ -59,15 +59,15 @@ async function sendMessage() {
     });
     const data = await res.json();
     $('#typing')?.remove();
-    if (!res.ok || !data.response) throw new Error();
+    if (!res.ok || !data.response) throw new Error(data.error || 'Error');
     messages.push({ role: 'assistant', content: data.response });
     addMessage('assistant', data.response);
-  } catch {
+  } catch (e) {
     $('#typing')?.remove();
     addMessage('assistant', t[currentLang].error);
   } finally {
     isSending = false;
-    $('#send-btn').disabled = false;
+    $('#send-btn').disabled = !$('#user-input').value.trim();
   }
 }
 
