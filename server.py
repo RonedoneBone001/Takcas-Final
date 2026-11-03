@@ -1,9 +1,8 @@
 from flask import Flask, jsonify, request, send_from_directory
 import os
-
 import requests
 
-app = Flask(__name__, static_folder=".")
+app = Flask(__name__, static_folder=".", static_url_path="")
 # Keep unexpectedly large JSON bodies from consuming excessive memory.
 app.config["MAX_CONTENT_LENGTH"] = 1 * 1024 * 1024
 
@@ -40,14 +39,11 @@ MAX_HISTORY_ITEMS = 8
 MAX_HISTORY_ITEM_CHARS = 6_000
 MAX_CONTEXT_CHARS = 24_000
 
-
 @app.route("/")
 def index():
     return send_from_directory(".", "index.html")
 
-
 def _build_messages(data):
-    """Validate client input and build a bounded, trusted chat payload."""
     if not isinstance(data, dict):
         raise ValueError("Invalid JSON request.")
 
@@ -71,8 +67,6 @@ def _build_messages(data):
     if not isinstance(history, list):
         raise ValueError("Chat history must be a list.")
 
-    # Only user/assistant turns are accepted. Limit both item count and total
-    # context size so a client cannot inflate provider cost with fake history.
     safe_history = []
     context_chars = 0
     for item in reversed(history[-40:]):
@@ -85,13 +79,7 @@ def _build_messages(data):
         content = content.strip()
         if not content or len(content) > MAX_HISTORY_ITEM_CHARS:
             continue
-        if (
-            role == "user"
-            and not safe_history
-            and content == user_message
-        ):
-            # The current frontend sends the new user turn in both message
-            # and history. Drop the duplicate latest turn.
+        if role == "user" and not safe_history and content == user_message:
             continue
         if len(safe_history) >= MAX_HISTORY_ITEMS:
             break
@@ -106,7 +94,6 @@ def _build_messages(data):
     messages.extend(safe_history)
     messages.append({"role": "user", "content": user_message})
     return persona_key, messages
-
 
 @app.route("/chat", methods=["POST"])
 def chat():
@@ -143,16 +130,8 @@ def chat():
         provider_data = response.json()
         choices = provider_data.get("choices") if isinstance(provider_data, dict) else None
         first_choice = choices[0] if isinstance(choices, list) and choices else None
-        provider_message = (
-            first_choice.get("message")
-            if isinstance(first_choice, dict)
-            else None
-        )
-        answer = (
-            provider_message.get("content")
-            if isinstance(provider_message, dict)
-            else None
-        )
+        provider_message = first_choice.get("message") if isinstance(first_choice, dict) else None
+        answer = provider_message.get("content") if isinstance(provider_message, dict) else None
         if not isinstance(answer, str) or not answer.strip():
             app.logger.warning("OpenRouter returned a response without message content")
             return jsonify({"error": "The AI provider returned an empty or invalid response."}), 502
@@ -162,18 +141,15 @@ def chat():
         app.logger.warning("OpenRouter request timed out")
         return jsonify({"error": "The AI provider timed out. Please try again."}), 504
     except requests.RequestException:
-        # Do not expose provider response bodies, credentials, or internals.
         app.logger.exception("OpenRouter request failed")
         return jsonify({"error": "The AI provider request failed. Please try again."}), 502
     except (ValueError, TypeError, IndexError, AttributeError):
         app.logger.exception("OpenRouter returned malformed JSON")
         return jsonify({"error": "The AI provider returned an invalid response."}), 502
 
-
 @app.errorhandler(413)
 def request_too_large(_error):
     return jsonify({"error": "Request body is too large."}), 413
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
