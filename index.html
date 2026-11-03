@@ -15,10 +15,12 @@
         .persona-btn.active { border-color: var(--accent); background-color: rgba(187, 134, 252, 0.1); color: var(--accent); }
         .persona-btn:hover { border-color: #555; }
         #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
-        .message { padding: 12px 16px; border-radius: 12px; max-width: 85%; word-wrap: break-word; line-height: 1.5; font-size: 15px; animation: fadeIn 0.3s ease; }
+        .message { padding: 12px 16px; border-radius: 12px; max-width: 85%; word-wrap: break-word; line-height: 1.5; font-size: 15px; animation: fadeIn 0.3s ease; white-space: pre-wrap; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .user-msg { background-color: var(--user-bg); align-self: flex-end; border-bottom-right-radius: 2px; }
         .bot-msg { background-color: var(--bot-bg); align-self: flex-start; border-bottom-left-radius: 2px; border-left: 3px solid var(--accent); }
+        .copy-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 12px; margin-top: 5px; padding: 2px 5px; display: flex; align-items: center; gap: 4px; }
+        .copy-btn:hover { color: var(--accent); }
         .loading { display: flex; gap: 4px; align-items: center; height: 20px; }
         .dot { width: 8px; height: 8px; background-color: var(--accent); border-radius: 50%; animation: bounce 1.4s infinite ease-in-out both; }
         .dot:nth-child(1) { animation-delay: -0.32s; } .dot:nth-child(2) { animation-delay: -0.16s; }
@@ -28,6 +30,7 @@
         textarea:focus { outline: none; border-color: var(--accent); }
         button.send-btn { background-color: var(--accent); color: #000; border: none; border-radius: 8px; padding: 0 20px; font-weight: bold; cursor: pointer; transition: 0.2s; }
         button.send-btn:hover { background-color: #9965d8; }
+        button.send-btn:disabled { opacity: 0.6; cursor: wait; }
     </style>
 </head>
 <body>
@@ -48,78 +51,135 @@
     
     <div class="input-area">
         <textarea id="user-input" placeholder="Напиши сообщение..." rows="1"></textarea>
-        <button class="send-btn" onclick="sendMessage()">➤</button>
+        <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
     </div>
 
     <script>
+        "use strict";
+
         const chatBox = document.getElementById('chat-box');
         const input = document.getElementById('user-input');
         const personasBar = document.getElementById('personas-bar');
+        const sendButton = document.getElementById('send-btn');
+        const langButton = document.getElementById('lang-toggle');
+
+        const PERSONAS = ["taksas", "dubina", "prokrastinator", "potassium", "coder"];
+        const MAX_HISTORY = 50;
+        const REQUEST_TIMEOUT = 120000;
+
         let currentPersona = 'taksas';
         let currentLang = 'ru';
-        
+        let isSending = false;
+
         const translations = {
-            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер" },
-            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder" }
+            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер", copy: "Копировать", copied: "Скопировано!", copyError: "Не удалось скопировать", connection: "Ошибка соединения.", generic: "Не удалось получить ответ.", timeout: "Время ожидания истекло." },
+            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder", copy: "Copy", copied: "Copied!", copyError: "Could not copy", connection: "Connection error.", generic: "Could not get a response.", timeout: "Request timed out." }
         };
 
         function toggleLang() {
             currentLang = currentLang === 'ru' ? 'en' : 'ru';
-            document.getElementById('lang-toggle').innerText = currentLang === 'ru' ? 'EN' : 'RU';
+            langButton.innerText = currentLang === 'ru' ? 'EN' : 'RU';
             input.placeholder = translations[currentLang].placeholder;
-            
-            document.getElementById('btn-taksas').innerText = translations[currentLang].taksas;
-            document.getElementById('btn-dubina').innerText = translations[currentLang].dubina;
-            document.getElementById('btn-prokrastinator').innerText = translations[currentLang].prokrastinator;
-            document.getElementById('btn-potassium').innerText = translations[currentLang].potassium;
-            document.getElementById('btn-coder').innerText = translations[currentLang].coder;
-            
+            PERSONAS.forEach(p => {
+                const btn = document.getElementById(`btn-${p}`);
+                if (btn) btn.innerText = translations[currentLang][p];
+            });
             renderHistory();
         }
 
-        function getHistoryKey() { return `chat_history_${currentPersona}`; }
-        function loadHistory() { return JSON.parse(localStorage.getItem(getHistoryKey())) || []; }
-        function saveHistory(history) { localStorage.setItem(getHistoryKey(), JSON.stringify(history)); }
+        function getHistoryKey(persona = currentPersona) { return `chat_history_${persona}`; }
+
+        function normalizeHistory(data) {
+            if (!Array.isArray(data)) return [];
+            return data.filter(msg => 
+                msg && typeof msg === 'object' && 
+                ["user", "assistant"].includes(msg.role) && 
+                typeof msg.content === 'string'
+            ).slice(-MAX_HISTORY);
+        }
+
+        function loadHistory(persona = currentPersona) {
+            try {
+                const raw = localStorage.getItem(getHistoryKey(persona));
+                return raw ? normalizeHistory(JSON.parse(raw)) : [];
+            } catch { return []; }
+        }
+
+        function saveHistory(history, persona = currentPersona) {
+            try {
+                if (PERSONAS.includes(persona)) {
+                    localStorage.setItem(getHistoryKey(persona), JSON.stringify(normalizeHistory(history)));
+                }
+            } catch {}
+        }
 
         function renderHistory() {
-            chatBox.innerHTML = '';
-            loadHistory().forEach(msg => addMessageToUI(msg.content, msg.role === 'user' ? 'user' : 'bot', false));
+            chatBox.replaceChildren();
+            loadHistory(currentPersona).forEach(msg => addMessageToUI(msg.content, msg.role === 'user' ? 'user' : 'bot', false));
         }
 
         personasBar.addEventListener('click', (e) => {
-            if (e.target.classList.contains('persona-btn')) {
-                document.querySelectorAll('.persona-btn').forEach(btn => btn.classList.remove('active'));
-                e.target.classList.add('active');
-                currentPersona = e.target.dataset.persona;
-                renderHistory();
-            }
+            const btn = e.target.closest('.persona-btn');
+            if (!btn || !PERSONAS.includes(btn.dataset.persona)) return;
+            document.querySelectorAll('.persona-btn').forEach(b => b.classList.toggle('active', b === btn));
+            currentPersona = btn.dataset.persona;
+            renderHistory();
         });
 
         input.addEventListener('input', function() {
             this.style.height = '20px';
-            this.style.height = (this.scrollHeight) + 'px';
+            this.style.height = Math.min(this.scrollHeight, 100) + 'px';
         });
 
         function addMessageToUI(text, sender, animate = true) {
-            const div = document.createElement('div');
-            div.className = `message ${sender === 'user' ? 'user-msg' : 'bot-msg'}`;
-            if (!animate) div.style.animation = 'none';
-            div.innerText = text;
-            chatBox.appendChild(div);
+            const wrapper = document.createElement('div');
+            wrapper.className = `message ${sender === 'user' ? 'user-msg' : 'bot-msg'}`;
+            if (!animate) wrapper.style.animation = 'none';
+            wrapper.textContent = text; // Безопасно от XSS
+            chatBox.appendChild(wrapper);
+
+            if (sender === 'bot') {
+                const copyBtn = document.createElement('button');
+                copyBtn.className = 'copy-btn';
+                copyBtn.textContent = '📋 ' + translations[currentLang].copy;
+                copyBtn.onclick = async () => {
+                    try {
+                        if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(text);
+                            copyBtn.textContent = '✅ ' + translations[currentLang].copied;
+                        } else {
+                            throw new Error('Clipboard not available');
+                        }
+                    } catch {
+                        copyBtn.textContent = '❌ ' + translations[currentLang].copyError;
+                    }
+                };
+                chatBox.appendChild(copyBtn);
+            }
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
+        function setSending(state) {
+            isSending = state;
+            sendButton.disabled = state;
+            input.disabled = state;
+        }
+
         async function sendMessage() {
+            if (isSending) return;
             const text = input.value.trim();
             if (!text) return;
 
-            const history = loadHistory();
+            const persona = currentPersona;
+            const lang = currentLang;
+            const history = loadHistory(persona);
             history.push({ role: 'user', content: text });
-            saveHistory(history);
+            saveHistory(history, persona);
             addMessageToUI(text, 'user');
-            
+
             input.value = '';
             input.style.height = '20px';
+            setSending(true);
 
             const loadingDiv = document.createElement('div');
             loadingDiv.className = 'message bot-msg';
@@ -127,30 +187,40 @@
             chatBox.appendChild(loadingDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
 
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
             try {
                 const response = await fetch('/chat', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ persona: currentPersona, message: text, history: history, lang: currentLang })
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ persona, message: text, history, lang }),
+                    signal: controller.signal
                 });
-                const data = await response.json();
-                loadingDiv.remove();
                 
-                if (data.response) {
-                    addMessageToUI(data.response, 'bot');
-                    history.push({ role: 'assistant', content: data.response });
-                    saveHistory(history);
-                } else {
-                    addMessageToUI("Ошибка: " + (data.error || "Пустой ответ"), 'bot');
-                }
-            } catch (e) {
+                const data = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(data.error || `Server error (${response.status})`);
+                if (typeof data.response !== 'string' || !data.response.trim()) throw new Error(data.error || translations[lang].generic);
+
+                const updated = loadHistory(persona);
+                updated.push({ role: 'assistant', content: data.response.trim() });
+                saveHistory(updated, persona);
+
+                if (currentPersona === persona) addMessageToUI(data.response.trim(), 'bot');
+
+            } catch (error) {
+                const msg = error.name === 'AbortError' ? translations[lang].timeout : (error.message || translations[lang].connection);
+                if (currentPersona === persona) addMessageToUI('Error: ' + msg, 'bot');
+            } finally {
+                clearTimeout(timeoutId);
                 loadingDiv.remove();
-                addMessageToUI("Ошибка соединения с сервером.", 'bot');
+                setSending(false);
+                input.focus();
             }
         }
 
-        input.addEventListener('keypress', function (e) {
-            if (e.key === 'Enter' && !e.shiftKey) {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                 e.preventDefault();
                 sendMessage();
             }
