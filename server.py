@@ -137,6 +137,11 @@ def chat():
             return jsonify({"error": "The AI provider returned an empty or invalid response."}), 502
         return jsonify({"response": answer.strip()})
 
+    except requests.HTTPError as e:
+        if e.response.status_code == 429:
+            return jsonify({"error": "Rate limit exceeded. Please try again later or upgrade the API key."}), 429
+        app.logger.exception("OpenRouter request failed")
+        return jsonify({"error": "The AI provider request failed. Please try again."}), 502
     except requests.Timeout:
         app.logger.warning("OpenRouter request timed out")
         return jsonify({"error": "The AI provider timed out. Please try again."}), 504
