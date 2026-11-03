@@ -1,512 +1,55 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="theme-color" content="#090b12">
-    <title>Takcas Prime: Multi-Assistant</title>
-    <style>
-        :root {
-            color-scheme: dark;
-            --bg: #090b12;
-            --panel: rgba(17, 21, 33, 0.88);
-            --text: #e8edf7;
-            --muted: #8e9ab0;
-            --accent: #a78bfa;
-            --accent-hover: #c4b5fd;
-            --line: rgba(160, 174, 205, 0.14);
-            --user-msg: linear-gradient(145deg, #6550c8, #49349f);
-            --bot-msg: linear-gradient(145deg, rgba(24, 31, 48, 0.98), rgba(17, 23, 37, 0.98));
-            --header-h: 64px;
-            --input-h: 76px;
-        }
-
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: radial-gradient(circle at 12% -12%, rgba(124, 91, 230, 0.19), transparent 62%), 
-                        radial-gradient(circle at 100% 5%, rgba(44, 116, 190, 0.12), transparent 58%), 
-                        var(--bg);
-            color: var(--text);
-            height: 100vh;
-            height: 100dvh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        /* HEADER */
-        header {
-            flex: 0 0 var(--header-h);
-            height: var(--header-h);
-            padding: 0 clamp(16px, 4vw, 54px);
-            background: rgba(10, 13, 22, 0.82);
-            border-bottom: 1px solid var(--line);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 10;
-        }
-
-        h1 {
-            font-size: clamp(18px, 2.5vw, 22px);
-            font-weight: 750;
-            letter-spacing: -0.04em;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            color: #f4f1ff;
-        }
-
-        h1::before {
-            content: "";
-            width: 10px;
-            height: 10px;
-            background: linear-gradient(135deg, #c4b5fd, #7c3aed);
-            border-radius: 3px;
-            box-shadow: 0 0 15px rgba(167, 139, 250, 0.75);
-            transform: rotate(45deg);
-        }
-
-        .lang-btn {
-            background: rgba(167, 139, 250, 0.09);
-            border: 1px solid rgba(167, 139, 250, 0.42);
-            color: #d9ccff;
-            padding: 8px 14px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            transition: all 0.2s ease;
-        }
-        .lang-btn:hover { background: rgba(167, 139, 250, 0.17); border-color: var(--accent); }
-        .lang-btn:active { transform: scale(0.95); }
-
-        /* PERSONAS */
-        .personas-bar {
-            flex: 0 0 auto;
-            display: flex;
-            gap: 8px;
-            padding: 12px clamp(16px, 4vw, 54px);
-            background: rgba(12, 15, 24, 0.72);
-            border-bottom: 1px solid var(--line);
-            overflow-x: auto;
-            scrollbar-width: none; /* Firefox */
-            -ms-overflow-style: none; /* IE/Edge */
-        }
-        .personas-bar::-webkit-scrollbar { display: none; } /* Chrome/Safari */
-
-        .persona-btn {
-            flex: 0 0 auto;
-            background: rgba(255, 255, 255, 0.035);
-            border: 1px solid var(--line);
-            color: #aeb9cc;
-            padding: 8px 14px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 650;
-            white-space: nowrap;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .persona-btn:hover { background: rgba(167, 139, 250, 0.08); border-color: rgba(167, 139, 250, 0.48); color: #f2edff; transform: translateY(-1px); }
-        .persona-btn.active {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.23), rgba(99, 102, 241, 0.10));
-            border-color: rgba(167, 139, 250, 0.72);
-            color: #eee8ff;
-            box-shadow: 0 4px 15px rgba(91, 61, 180, 0.15);
-        }
-
-        /* CHAT BOX */
-        #chat-box {
-            flex: 1 1 auto;
-            min-height: 0;
-            padding: 20px clamp(16px, 6vw, 120px);
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            scroll-behavior: smooth;
-        }
-
-        .message-wrapper {
-            display: flex;
-            flex-direction: column;
-            max-width: min(85%, 800px);
-            position: relative;
-            animation: slideUp 0.3s ease forwards;
-        }
-
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .user-msg-wrapper { align-self: flex-end; align-items: flex-end; }
-        .bot-msg-wrapper { align-self: flex-start; align-items: flex-start; }
-
-        .message {
-            padding: 12px 16px;
-            border-radius: 16px;
-            line-height: 1.6;
-            font-size: 14px;
-            word-break: break-word;
-            white-space: pre-wrap;
-            border: 1px solid var(--line);
-        }
-
-        .user-msg {
-            background: var(--user-msg);
-            color: #fff;
-            border-color: rgba(196, 181, 253, 0.2);
-            border-bottom-right-radius: 4px;
-        }
-
-        .bot-msg {
-            background: var(--bot-msg);
-            color: #e2e8f4;
-            border-left: 3px solid var(--accent);
-            border-bottom-left-radius: 4px;
-        }
-
-        .copy-btn {
-            background: none;
-            border: none;
-            color: var(--muted);
-            font-size: 11px;
-            margin-top: 4px;
-            padding: 4px 6px;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: all 0.2s;
-            opacity: 0.8;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-        .copy-btn:hover { background: rgba(167, 139, 250, 0.1); color: var(--accent); opacity: 1; }
-
-        /* LOADING */
-        .loading { display: flex; gap: 4px; align-items: center; height: 18px; }
-        .dot {
-            width: 6px; height: 6px; background: var(--accent); border-radius: 50%;
-            animation: bounce 1.4s infinite ease-in-out both;
-        }
-        .dot:nth-child(1) { animation-delay: -0.32s; }
-        .dot:nth-child(2) { animation-delay: -0.16s; }
-        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
-
-        /* INPUT AREA */
-        .input-area {
-            flex: 0 0 auto;
-            min-height: var(--input-h);
-            padding: 16px clamp(16px, 6vw, 120px) max(16px, env(safe-area-inset-bottom));
-            background: rgba(12, 16, 26, 0.92);
-            border-top: 1px solid var(--line);
-            backdrop-filter: blur(18px);
-            -webkit-backdrop-filter: blur(18px);
-            display: flex;
-            align-items: flex-end;
-            gap: 10px;
-            z-index: 10;
-        }
-
-        textarea {
-            flex: 1;
-            min-width: 0;
-            min-height: 46px;
-            max-height: 120px;
-            padding: 12px 16px;
-            border-radius: 14px;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            background: rgba(7, 10, 18, 0.92);
-            color: var(--text);
-            font-size: 14px;
-            line-height: 1.5;
-            resize: none;
-            transition: all 0.2s;
-            outline: none;
-        }
-        textarea:focus { border-color: rgba(167, 139, 250, 0.72); background: #0b0f1b; box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.12); }
-        textarea::placeholder { color: #758198; }
-        textarea:disabled { opacity: 0.6; cursor: not-allowed; }
-
-        .send-btn {
-            flex: 0 0 46px;
-            width: 46px;
-            height: 46px;
-            display: grid;
-            place-items: center;
-            background: linear-gradient(145deg, #c4b5fd, #8b5cf6);
-            color: #171025;
-            border: none;
-            border-radius: 14px;
-            font-size: 20px;
-            font-weight: 800;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);
-            transition: all 0.2s;
-        }
-        .send-btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4); }
-        .send-btn:active:not(:disabled) { transform: translateY(0); }
-        .send-btn:disabled { opacity: 0.5; cursor: wait; box-shadow: none; }
-
-        /* МЕДИА-ЗАПРОСЫ ДЛЯ МОБИЛОК */
-        @media (max-width: 640px) {
-            :root { --header-h: 56px; --input-h: 68px; }
-            h1 { font-size: 18px; }
-            .personas-bar { padding: 8px 12px; gap: 6px; }
-            .persona-btn { padding: 6px 12px; font-size: 12px; border-radius: 10px; }
-            #chat-box { padding: 16px 12px; gap: 12px; }
-            .message-wrapper { max-width: 92%; }
-            .message { padding: 10px 14px; font-size: 13.5px; }
-            .input-area { padding: 10px 12px max(10px, env(safe-area-inset-bottom)); gap: 8px; }
-            textarea { padding: 10px 14px; font-size: 14px; min-height: 42px; }
-            .send-btn { flex-basis: 42px; width: 42px; height: 42px; border-radius: 12px; font-size: 18px; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Takcas Prime</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header>
-        <h1>Takcas Prime</h1>
-        <button class="lang-btn" id="lang-toggle" onclick="toggleLang()" type="button">EN</button>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-logo">T</div>
+      <div><div class="brand-name">Takcas Prime</div><div class="brand-sub">AI Workspace</div></div>
+    </div>
+    <div class="sidebar-label">ПЕРСОНАЖИ</div>
+    <nav class="nav">
+      <button class="nav-btn active" data-persona="taksas" id="btn-taksas">🕵️‍♂️ Таксас</button>
+      <button class="nav-btn" data-persona="dubina" id="btn-dubina">🪵 Дубина</button>
+      <button class="nav-btn" data-persona="prokrastinator" id="btn-prokrastinator">🦥 Прокрастинатор</button>
+      <button class="nav-btn" data-persona="potassium" id="btn-potassium">🥔 Потассиум</button>
+      <button class="nav-btn" data-persona="coder" id="btn-coder">💻 Кодер</button>
+    </nav>
+  </aside>
+  <div class="overlay" id="overlay"></div>
+  <main class="main">
+    <header class="topbar">
+      <div class="top-left">
+        <button class="icon-btn" id="sidebar-open">☰</button>
+        <div class="page-title">Takcas Prime</div>
+        <div class="status"><span class="status-dot"></span>Ready</div>
+      </div>
+      <div class="top-actions">
+        <button class="lang-btn" id="lang-toggle">EN / RU</button>
+        <button class="icon-btn" id="clear-chat">🗑</button>
+      </div>
     </header>
-    
-    <div class="personas-bar" id="personas-bar">
-        <button class="persona-btn active" data-persona="taksas" type="button">🕵️‍♂️ Таксас</button>
-        <button class="persona-btn" data-persona="dubina" type="button">🪵 Дубина</button>
-        <button class="persona-btn" data-persona="prokrastinator" type="button">🦥 Прокрастинатор</button>
-        <button class="persona-btn" data-persona="potassium" type="button">🥔 Потассиум</button>
-        <button class="persona-btn" data-persona="coder" type="button">💻 Кодер</button>
-    </div>
-    
-    <div id="chat-box"></div>
-    
-    <div class="input-area">
-        <textarea id="user-input" placeholder="Напиши сообщение..." rows="1"></textarea>
-        <button class="send-btn" id="send-btn" onclick="sendMessage()" type="button">➤</button>
-    </div>
-
-    <script>
-        "use strict";
-
-        // --- КОНФИГУРАЦИЯ ---
-        const CONFIG = {
-            personas: ["taksas", "dubina", "prokrastinator", "potassium", "coder"],
-            maxHistory: 50,
-            timeout: 120000, // 2 минуты
-            copyFeedbackTime: 2000
-        };
-
-        const TRANSLATIONS = {
-            ru: { placeholder: "Напиши сообщение...", taksas: "🕵️‍♂️ Таксас", dubina: "🪵 Дубина", prokrastinator: "🦥 Прокрастинатор", potassium: "🥔 Потассиум", coder: "💻 Кодер", copy: "Копировать", copied: "Скопировано!", copyError: "Ошибка копирования", connError: "Ошибка соединения.", genError: "Пустой ответ.", timeoutError: "Таймаут запроса." },
-            en: { placeholder: "Type a message...", taksas: "🕵️‍♂️ Takcas", dubina: "🪵 Dubina", prokrastinator: "🦥 Procrastinator", potassium: "🥔 Potassium", coder: "💻 Coder", copy: "Copy", copied: "Copied!", copyError: "Copy failed", connError: "Connection error.", genError: "Empty response.", timeoutError: "Request timeout." }
-        };
-
-        // --- СОСТОЯНИЕ ---
-        let state = {
-            persona: "taksas",
-            lang: "ru",
-            isSending: false
-        };
-
-        // --- ЭЛЕМЕНТЫ DOM ---
-        const DOM = {
-            chatBox: document.getElementById("chat-box"),
-            input: document.getElementById("user-input"),
-            sendBtn: document.getElementById("send-btn"),
-            personasBar: document.getElementById("personas-bar"),
-            langBtn: document.getElementById("lang-toggle")
-        };
-
-        // --- УТИЛИТЫ ---
-        const getHistoryKey = (persona) => `chat_history_${persona}`;
-        
-        const normalizeHistory = (data) => {
-            if (!Array.isArray(data)) return [];
-            return data.filter(m => m && ["user", "assistant"].includes(m.role) && typeof m.content === "string").slice(-CONFIG.maxHistory);
-        };
-
-        const loadHistory = (persona) => {
-            try {
-                const raw = localStorage.getItem(getHistoryKey(persona));
-                return raw ? normalizeHistory(JSON.parse(raw)) : [];
-            } catch { return []; }
-        };
-
-        const saveHistory = (persona, history) => {
-            try {
-                if (CONFIG.personas.includes(persona)) {
-                    localStorage.setItem(getHistoryKey(persona), JSON.stringify(normalizeHistory(history)));
-                }
-            } catch (e) { console.warn("Save history error:", e); }
-        };
-
-        // --- РЕНДЕРИНГ ---
-        function renderHistory() {
-            DOM.chatBox.innerHTML = "";
-            const history = loadHistory(state.persona);
-            history.forEach(msg => addMessageToUI(msg.content, msg.role, false));
-            scrollToBottom();
-        }
-
-        function addMessageToUI(text, role, animate = true) {
-            const wrapper = document.createElement("div");
-            wrapper.className = `message-wrapper ${role === "user" ? "user-msg-wrapper" : "bot-msg-wrapper"}`;
-            if (!animate) wrapper.style.animation = "none";
-
-            const msgDiv = document.createElement("div");
-            msgDiv.className = `message ${role === "user" ? "user-msg" : "bot-msg"}`;
-            msgDiv.textContent = text; // Защита от XSS
-            wrapper.appendChild(msgDiv);
-
-            if (role === "assistant") {
-                const copyBtn = document.createElement("button");
-                copyBtn.className = "copy-btn";
-                copyBtn.type = "button";
-                copyBtn.innerHTML = `📋 ${TRANSLATIONS[state.lang].copy}`;
-                copyBtn.onclick = async () => {
-                    try {
-                        await navigator.clipboard.writeText(text);
-                        copyBtn.innerHTML = `✅ ${TRANSLATIONS[state.lang].copied}`;
-                        setTimeout(() => { copyBtn.innerHTML = `📋 ${TRANSLATIONS[state.lang].copy}`; }, CONFIG.copyFeedbackTime);
-                    } catch {
-                        copyBtn.innerHTML = `❌ ${TRANSLATIONS[state.lang].copyError}`;
-                    }
-                };
-                wrapper.appendChild(copyBtn);
-            }
-            DOM.chatBox.appendChild(wrapper);
-            scrollToBottom();
-        }
-
-        function createLoadingIndicator() {
-            const wrapper = document.createElement("div");
-            wrapper.className = "message-wrapper bot-msg-wrapper";
-            wrapper.innerHTML = `<div class="message bot-msg"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
-            return wrapper;
-        }
-
-        function scrollToBottom() { DOM.chatBox.scrollTop = DOM.chatBox.scrollHeight; }
-
-        function toggleLang() {
-            state.lang = state.lang === "ru" ? "en" : "ru";
-            DOM.langBtn.textContent = state.lang === "ru" ? "EN" : "RU";
-            DOM.input.placeholder = TRANSLATIONS[state.lang].placeholder;
-            
-            document.querySelectorAll(".persona-btn").forEach(btn => {
-                const p = btn.dataset.persona;
-                if (TRANSLATIONS[state.lang][p]) {
-                    btn.textContent = TRANSLATIONS[state.lang][p];
-                }
-            });
-            renderHistory();
-        }
-
-        // --- ЛОГИКА ОТПРАВКИ ---
-        function setSending(isSending) {
-            state.isSending = isSending;
-            DOM.sendBtn.disabled = isSending;
-            DOM.input.disabled = isSending;
-            if (!isSending) DOM.input.focus();
-        }
-
-        async function sendMessage() {
-            if (state.isSending) return;
-            const text = DOM.input.value.trim();
-            if (!text) return;
-
-            const persona = state.persona;
-            const lang = state.lang;
-            const history = loadHistory(persona);
-
-            // UI Update
-            history.push({ role: "user", content: text });
-            saveHistory(persona, history);
-            addMessageToUI(text, "user");
-            DOM.input.value = "";
-            DOM.input.style.height = "46px";
-            setSending(true);
-
-            const loader = createLoadingIndicator();
-            DOM.chatBox.appendChild(loader);
-            scrollToBottom();
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), CONFIG.timeout);
-
-            try {
-                const response = await fetch("/chat", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json", "Accept": "application/json" },
-                    body: JSON.stringify({ persona, message: text, history, lang }),
-                    signal: controller.signal
-                });
-
-                const data = await response.json().catch(() => ({}));
-
-                if (!response.ok) {
-                    throw new Error(data.error || `Server error (${response.status})`);
-                }
-                if (typeof data.response !== "string" || !data.response.trim()) {
-                    throw new Error(data.error || TRANSLATIONS[lang].genError);
-                }
-
-                const updatedHistory = loadHistory(persona);
-                updatedHistory.push({ role: "assistant", content: data.response.trim() });
-                saveHistory(persona, updatedHistory);
-
-                if (state.persona === persona) {
-                    addMessageToUI(data.response.trim(), "assistant");
-                }
-
-            } catch (error) {
-                console.error("Chat error:", error);
-                const msg = error.name === "AbortError" ? TRANSLATIONS[lang].timeoutError : (error.message || TRANSLATIONS[lang].connError);
-                if (state.persona === persona) {
-                    addMessageToUI(`Error: ${msg}`, "assistant");
-                }
-            } finally {
-                clearTimeout(timeoutId);
-                loader.remove();
-                setSending(false);
-            }
-        }
-
-        // --- ИНИЦИАЛИЗАЦИЯ СОБЫТИЙ ---
-        DOM.personasBar.addEventListener("click", (e) => {
-            const btn = e.target.closest(".persona-btn");
-            if (!btn) return;
-            document.querySelectorAll(".persona-btn").forEach(b => b.classList.remove("active"));
-            btn.classList.add("active");
-            state.persona = btn.dataset.persona;
-            renderHistory();
-        });
-
-        DOM.input.addEventListener("input", function() {
-            this.style.height = "46px";
-            this.style.height = Math.min(this.scrollHeight, 120) + "px";
-        });
-
-        DOM.input.addEventListener("keydown", (e) => {
-            if (e.key === "Enter" && !e.shiftKey && !e.isComposing) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
-
-        DOM.sendBtn.addEventListener("click", sendMessage);
-        DOM.langBtn.addEventListener("click", toggleLang);
-
-        // Старт
-        renderHistory();
-        DOM.input.focus();
-
-    </script>
+    <section class="workspace" id="workspace">
+      <div class="chat-page">
+        <div class="messages" id="chat-box"></div>
+      </div>
+    </section>
+    <footer class="composer-area">
+      <div class="composer">
+        <textarea id="user-input" rows="2" placeholder="Сообщение..."></textarea>
+        <div class="composer-bottom">
+          <button class="send-btn" id="send-btn" disabled>➤</button>
+        </div>
+      </div>
+    </footer>
+  </main>
+</div>
+<script src="script.js"></script>
 </body>
 </html>
