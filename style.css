@@ -1,0 +1,46 @@
+:root { --bg: #09070f; --sidebar: #0d0a16; --border: rgba(167,139,250,.15); --text: #f4f0ff; --muted: #9189a7; --accent: #a78bfa; --green: #67e8b5; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, sans-serif; font-size: 14px; overflow: hidden; }
+button, textarea { font: inherit; cursor: pointer; }
+.app { display: flex; height: 100dvh; }
+.sidebar { width: 250px; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 18px 13px; }
+.brand { display: flex; gap: 11px; padding: 7px 8px 20px; }
+.brand-logo { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: #fff; background: linear-gradient(145deg, #a78bfa, #6d28d9); font-size: 21px; font-weight: 800; }
+.brand-name { font-weight: 750; }
+.brand-sub { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.sidebar-label { color: #756b89; font-size: 10px; font-weight: 750; letter-spacing: 1.3px; padding: 13px 11px 8px; text-transform: uppercase; }
+.nav { display: grid; gap: 4px; }
+.nav-btn { display: flex; align-items: center; gap: 11px; width: 100%; min-height: 42px; padding: 10px 11px; color: #a69db9; background: transparent; border: 1px solid transparent; border-radius: 10px; text-align: left; transition: .18s ease; }
+.nav-btn:hover { color: var(--text); background: #ffffff08; }
+.nav-btn.active { color: #e8dcff; background: linear-gradient(100deg, #a78bfa20, #8b5cf610); border-color: #a78bfa26; }
+.main { flex: 1; display: flex; flex-direction: column; }
+.topbar { height: 65px; display: flex; align-items: center; justify-content: space-between; padding: 0 25px; border-bottom: 1px solid var(--border); background: #09070fdd; backdrop-filter: blur(20px); }
+.top-left, .top-actions { display: flex; align-items: center; gap: 12px; }
+.status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; }
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 10px #67e8b550; }
+.icon-btn { width: 36px; height: 36px; display: grid; place-items: center; color: #a79dbb; background: transparent; border: 1px solid transparent; border-radius: 10px; transition: .2s; }
+.icon-btn:hover { color: white; background: #ffffff0a; border-color: var(--border); }
+.lang-btn { color: var(--accent); background: #a78bfa10; border: 1px solid #a78bfa2a; border-radius: 9px; padding: 8px 11px; font-size: 11px; font-weight: 750; }
+.workspace { flex: 1; overflow-y: auto; }
+.chat-page { width: min(100%, 880px); margin: 0 auto; padding: 35px 24px 25px; }
+.messages { display: grid; gap: 26px; padding: 10px 0 30px; }
+.message { display: flex; gap: 13px; }
+.message-avatar { width: 31px; height: 31px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; background: #a78bfa17; color: var(--accent); border: 1px solid #a78bfa18; font-size: 16px; }
+.message.user .message-avatar { color: white; background: #29213c; }
+.message-content { min-width: 0; flex: 1; }
+.message-name { font-size: 11px; font-weight: 750; margin: 2px 0 9px; }
+.message-text { color: #d7d0e6; font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
+.composer-area { flex-shrink: 0; padding: 10px 24px 15px; background: linear-gradient(transparent, var(--bg) 20%); }
+.composer { width: min(100%, 830px); margin: 0 auto; border: 1px solid #a78bfa30; background: #14111f; border-radius: 17px; }
+#user-input { width: 100%; min-height: 62px; max-height: 180px; resize: none; border: 0; outline: 0; padding: 17px 17px 8px; color: var(--text); background: transparent; }
+.composer-bottom { display: flex; justify-content: flex-end; padding: 7px 10px 10px; }
+.send-btn { width: 35px; height: 35px; display: grid; place-items: center; border: 0; border-radius: 11px; color: white; background: linear-gradient(145deg, #a78bfa, #7c3aed); }
+.send-btn:disabled { opacity: .35; cursor: not-allowed; }
+.overlay { display: none; position: fixed; inset: 0; z-index: 15; background: #0008; }
+.overlay.show { display: block; }
+@media (max-width: 850px) {
+  .sidebar { position: fixed; top: 0; bottom: 0; left: 0; transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+  #sidebar-open { display: grid; }
+}
+@media (min-width: 851px) { #sidebar-open { display: none; } }
