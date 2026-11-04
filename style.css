@@ -58,17 +58,68 @@ body.light{--bg:#f6f6fb;--panel:#fff;--panel-2:#f0f0f7;--border:#e3e3ee;--text:#
 .msg-text.err{background:#3b0f1e;border-color:#6b1a35;color:#ffc9d4}
 .msg-text.temp{color:var(--muted);font-style:italic}
 
-/* Input area — ИСПРАВЛЕНО */
-.input-area{padding:14px 24px 18px;border-top:1px solid var(--border);flex-shrink:0}
-.composer{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:16px;padding:10px 12px 12px}
-.composer-top{display:flex;gap:8px;margin-bottom:8px}
-.chip{background:var(--panel-2);border:none;color:var(--muted);font-size:11px;padding:5px 10px;border-radius:8px;cursor:pointer}
-.chip:hover{color:var(--text)}
-.chip.on{background:rgba(124,92,255,.25);color:#c9b3ff}
-#input{display:block;width:100%;background:transparent;border:none;outline:none;resize:none;color:var(--text);font-size:14px;line-height:1.4;padding:4px 48px 4px 2px;min-height:44px;max-height:160px;font-family:inherit}
-#input::placeholder{color:var(--muted)}
-.send-btn{position:absolute;right:10px;bottom:10px;width:36px;height:36px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
-.send-btn:disabled{opacity:.5;cursor:not-allowed}
-.disclaimer{text-align:center;font-size:10px;color:var(--muted);margin-top:8px}
+/* ПРИНУДИТЕЛЬНЫЙ ФИКС ВВОДА */
+.input-area {
+  padding: 14px 24px 18px !important;
+  border-top: 1px solid var(--border) !important;
+  flex-shrink: 0 !important;
+  background: var(--bg) !important;
+  width: 100% !important;
+}
+.composer {
+  position: relative !important;
+  background: var(--panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
+  padding: 10px 12px 12px !important;
+  min-height: 100px !important; /* Жестко задаем высоту */
+  display: block !important;
+}
+.composer-top {
+  display: flex !important;
+  gap: 8px !important;
+  margin-bottom: 12px !important;
+}
+.chip { background: var(--panel-2); border: none; color: var(--muted); font-size: 11px; padding: 5px 10px; border-radius: 8px; cursor: pointer; }
+.chip:hover { color: var(--text); }
+.chip.on { background: rgba(124, 92, 255, .25); color: #c9b3ff; }
+
+#input {
+  display: block !important;
+  width: 100% !important;
+  min-height: 44px !important; /* Принудительная высота строки */
+  background: transparent !important;
+  border: 1px solid rgba(255,255,255,0.1) !important; /* Временная рамка, чтобы точно увидеть */
+  border-radius: 8px !important;
+  outline: none !important;
+  resize: none !important;
+  color: var(--text) !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  padding: 10px 48px 10px 10px !important;
+  max-height: 160px !important;
+  font-family: inherit !important;
+}
+#input::placeholder { color: var(--muted); }
+
+.send-btn {
+  position: absolute !important;
+  right: 16px !important;
+  bottom: 20px !important; /* Поднял кнопку */
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2)) !important;
+  color: #fff !important;
+  font-size: 16px !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 10 !important; /* Кнопка всегда поверх */
+}
+.send-btn:disabled { opacity: .5; cursor: not-allowed; }
+.disclaimer { text-align: center; font-size: 10px; color: var(--muted); margin-top: 8px; }
 
 @media(max-width:760px){.sidebar{display:none}.msg-body{max-width:88%}}
